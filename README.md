@@ -1,4 +1,4 @@
-##Realtime Database Server RethinkDB
+## Realtime Database Server RethinkDB
 
 Realtime database server created with express.js, socket.io and RethinkDB
 
