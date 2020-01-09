@@ -36,12 +36,12 @@ r.connect(db)
             });
 
         // Listing all messages when new user connects into socket.io
-        io.on('connection', (client) => {
+        io.sockets.on('connect', (client) => {
             r.table('messages')
                 .run(conn)
                 .then(cursor => {
                     cursor.each((err, message) => {
-                        io.sockets.emit('/messages', message);
+                        client.emit('/messages', message);
                     });
                 });
             // Listening the event from client and insert new messages
