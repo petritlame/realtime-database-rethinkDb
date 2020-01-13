@@ -7,7 +7,7 @@ const config = require('./config.json');
 
 // Loading Express, HTTP, Socket.IO and RethinkDB
 const db = Object.assign(config.rethinkdb, {
-    db: 'timeline'
+    db: 'deviceLocation'
 });
 const app = express();
 const server = http.Server(app);
@@ -25,7 +25,7 @@ r.connect(db)
 
         // The changefeed is provided by change() function
         // which emits broadcast of new messages for all clients
-        r.table('messages')
+        r.table('positions')
             .changes()
             .run(conn)
             .then(cursor => {
@@ -37,7 +37,7 @@ r.connect(db)
 
         // Listing all messages when new user connects into socket.io
         io.sockets.on('connect', (client) => {
-            r.table('messages')
+            r.table('positions')
                 .run(conn)
                 .then(cursor => {
                     cursor.each((err, message) => {
@@ -47,15 +47,24 @@ r.connect(db)
             // Listening the event from client and insert new messages
             client.on('/messages', (body) => {
                 const {
-                    name, message
+                    lat, lng
                 } = body;
+                const sessionID = client.id;
                 const data = {
-                    name, message, date: new Date()
+                   clientId: sessionID, lat, lng, date: new Date()
                 };
-                r.table('messages').insert(data).run(conn);
+                r.table('positions').insert(data).run(conn);
+                console.log(data)
+            });
+            client.on('disconnect', function () {
+                console.log("Delete from table "+  client.id);
+                var data = {
+                    clientId: client.id
+                };
+                io.sockets.emit('/disconnected', data);
+                return r.table("positions").filter({"clientId": client.id}).delete().run(conn)
             });
         });
-
         server.listen(3000, () => console.log('Timeline Server!'));
     })
     .error(err => {
