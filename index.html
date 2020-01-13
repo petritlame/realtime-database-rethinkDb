@@ -6,42 +6,85 @@
     <title>Timeline</title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <script src="/socket.io/socket.io.js"></script>
+    <style>
+        #map {
+            height: 500px;
+            width: 500px;
+        }
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
 </head>
-
 <body>
-<form style="text-align:center;margin:50px 0">
-    <label for="name">Name:</label>
-    <input type="text" id="name" />
-    <label for="message">Message:</label>
-    <input type="text" id="message" />
-    <button type="submit">Send</button>
-</form>
-<fieldset style="padding: 20px;width:50%;margin:0 auto">
-    <legend style="text-align:center">Timeline</legend>
-    <p id="messages"></p>
-</fieldset>
+<div id="map"></div>
+</body>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script async defer src="https://maps.googleapis.com/maps/api/js?&libraries=drawing&key=AIzaSyBrSZQ14IQk5WnYGE5KaIr2ska3NSlaY4c&callback=initMap"></script>
 <script>
+
+
+    var socket = io();
     (function() {
-        var socket = io();
-        var form = document.querySelector('form');
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            var name = e.target.querySelector('#name');
-            var message = e.target.querySelector('#message');
-            var data = {
-                name: name.value,
-                message: message.value
-            };
-            socket.emit('/messages', data);
-            e.target.reset();
-        });
+        var connections = [];
+        var markers = [];
         socket.on('/messages', function(data) {
-            var messages = document.querySelector('#messages');
-            var message = '<b>' + data.name + ':</b> ' +
-                data.message + '<br />';
-            messages.innerHTML += message;
+            if (data) {
+                if (!connections.includes(data.clientId)) {
+                    connections.push(data.clientId);
+                    markers.push({lat: data.lat, lng: data.lng});
+                }
+                    setMarker({lat: data.lat, lng: data.lng}, data.clientId)
+            }
+        });
+        socket.on('/disconnected', function(data) {
+            var index = connections.indexOf(data.clientId);
+            if (index !== -1) connections.splice(index, 1);
+           removeMarker(data.clientId);
         });
     })();
+
+    function getRandomInRange(from, to, fixed) {
+        return (Math.random() * (to - from) + from).toFixed(fixed) * 1;
+    }
+
+    setInterval(function(){
+        var data = {
+            lat: getRandomInRange(41.1000, 41.5000, 4),
+            lng: getRandomInRange(19.6000, 20.0000, 4)
+        };
+        socket.emit('/messages', data);
+    }, 1000);
+
+
+    var map;
+    function initMap() {
+        map = new google.maps.Map(document.getElementById('map'), {
+            center: {lat: 41.3275, lng: 19.8187},
+            zoom: 8
+        });
+    }
+
+    var markers = {};
+
+    function removeMarker(markerId) {
+        if(markers[markerId]){
+            markers[markerId].setMap(null);
+            delete markers[markerId];
+        }
+    }
+    function setMarker(position, markerId) {
+        removeMarker(markerId);
+        var temp_marker = new google.maps.Marker({
+            position: position
+        });
+        temp_marker.setMap(map);
+        temp_marker.metadata = { id: markerId };
+        markers[markerId] = temp_marker;
+    }
 </script>
 </body>
 
